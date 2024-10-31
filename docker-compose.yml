@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: php_app
+    volumes:
+      - ./:/var/www/html
+      - ./meu-php.ini:/usr/local/etc/php/php.ini # (Opcional) Inclua um arquivo php.ini personalizado
+      - ./migrations:/docker-entrypoint-initdb.d  # Monta as migrations
+    ports:
+      - "8080:80"
+    networks:
+      - app-network
+    command: >
+      bash -c "a2enmod rewrite &&
+               chown -R www-data:www-data /var/www/html &&
+               /var/www/html/run-migrations.sh && 
+               apache2-foreground"
+    environment:                  # Definindo variáveis de ambiente para o PHP
+      DB_HOST: db
+      DB_NAME: iaprova
+      DB_USER: root
+      DB_PASS: root
+      DB_PORT: "3306"
+
+
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+      MYSQL_DATABASE: iaprova
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./backups:/backup  # Volume para o backup
+    ports:
+      - "3306:3306"
+    networks:
+      - app-network
+
+#PHP
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: "root"
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db_data:
